@@ -1,0 +1,45 @@
+name: Homelab image
+
+# Builds Keel 0.22.4 plus the keel.sh/pollTagsAfterCurrent patch
+# (keel-hq/keel#942, keel-hq/keel#943) for the homelab cluster. Retire this
+# branch and go back to the upstream image once the patch is released.
+on:
+  push:
+    branches: [homelab]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_TAG: 0.22.4-tagcursor.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+      - run: go test ./...
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          provenance: false
+          push: true
+          build-args: |
+            VERSION=${{ env.IMAGE_TAG }}
+            REVISION=${{ github.sha }}
+          tags: |
+            ghcr.io/viktorbarzin/keel:${{ env.IMAGE_TAG }}
